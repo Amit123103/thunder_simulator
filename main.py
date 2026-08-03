@@ -132,7 +132,7 @@ class LightningSimulatorApp(mglw.WindowConfig):
         self.particles.update(delta_time)
 
         # Update telemetry state for ImGui HUD
-        self.app_state['particle_count'] = np.sum(self.particles.particles[:, 7] > 0.0)
+        self.app_state['particle_count'] = self.particles.active_count
         self.app_state['active_bolts'] = len(self.lightning_sys.active_bolts)
         self.app_state['camera_mode_name'] = 'Cinematic Fly-through' if self.camera.mode == Camera.MODE_CINEMATIC else 'Orbit Camera'
 

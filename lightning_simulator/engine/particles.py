@@ -133,6 +133,8 @@ class ParticleSystem:
         self.particles[below_ground, 0] = np.random.uniform(-60.0, 60.0, size=np.sum(below_ground))
         self.particles[below_ground, 2] = np.random.uniform(-60.0, 60.0, size=np.sum(below_ground))
 
+        self.active_count = int(np.count_nonzero(self.particles[:, 7] > 0.0))
+
     def get_render_buffer_data(self):
         """Fast vectorized particle buffer extraction for 120+ FPS GPU instanced rendering."""
         active_mask = self.particles[:, 7] > 0.0
