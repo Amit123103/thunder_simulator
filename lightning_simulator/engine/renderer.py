@@ -93,7 +93,7 @@ class MasterRenderer:
         )
 
     def setup_quad_geometry(self):
-        """Creates Screen Quad VAO for full-screen pass shaders (sky, clouds, post, bloom)."""
+        """Creates Screen Quad VAO for full-screen pass shaders and pre-allocated dynamic VBOs."""
         quad_data = create_screen_quad_data()
         self.quad_vbo = self.ctx.buffer(quad_data.tobytes())
         
@@ -101,6 +101,21 @@ class MasterRenderer:
         self.vao_quad_sky = self.ctx.vertex_array(self.prog_sky, [(self.quad_vbo, '2f 2f', 'a_Position', 'a_TexCoord')])
         self.vao_quad_clouds = self.ctx.vertex_array(self.prog_clouds, [(self.quad_vbo, '2f 2f', 'a_Position', 'a_TexCoord')])
         self.vao_quad_bloom = self.ctx.vertex_array(self.prog_bloom, [(self.quad_vbo, '2f 2f', 'a_Position', 'a_TexCoord')])
+
+        # Pre-allocate dynamic GPU VBOs for 120+ FPS high performance (zero allocation churn)
+        max_p_bytes = Config.MAX_PARTICLES * 10 * 4
+        self.vbo_particles_dyn = self.ctx.buffer(reserve=max_p_bytes)
+        self.vao_particles = self.ctx.vertex_array(
+            self.prog_particles,
+            [(self.vbo_particles_dyn, '3f 1f 1f 4f 1f/i', 'a_InstancePos', 'a_InstanceSize', 'a_InstanceType', 'a_InstanceColor', 'a_InstanceLifeRatio')]
+        )
+
+        max_bolt_bytes = 8000 * 6 * 4
+        self.vbo_bolt_dyn = self.ctx.buffer(reserve=max_bolt_bytes)
+        self.vao_bolt = self.ctx.vertex_array(
+            self.prog_lightning,
+            [(self.vbo_bolt_dyn, '3f 1f 2f', 'a_Position', 'a_Level', 'a_TexCoord')]
+        )
 
     def setup_framebuffers(self):
         """Creates HDR floating point (RGBA16F) color attachment buffer and depth stencil attachment."""
@@ -182,35 +197,31 @@ class MasterRenderer:
         vao_terrain.render(moderngl.TRIANGLES)
 
         # 4. 3D Lightning Bolts Billboard Mesh Pass
+        self.ctx.enable(moderngl.DEPTH_TEST)
         for bolt in lightning_sys.active_bolts:
             mesh_data = bolt.build_mesh_data(camera.position)
             if len(mesh_data) > 0:
-                vbo_bolt = self.ctx.buffer(mesh_data.tobytes())
-                vao_bolt = self.ctx.vertex_array(
-                    self.prog_lightning,
-                    [(vbo_bolt, '3f 1f 2f', 'a_Position', 'a_Level', 'a_TexCoord')]
-                )
+                raw_bytes = mesh_data.tobytes()
+                self.vbo_bolt_dyn.write(raw_bytes)
                 self.prog_lightning['u_PV'].write(pv.to_bytes())
                 self.prog_lightning['u_Intensity'].value = bolt.current_intensity
                 
                 # Render bolt geometry with additive blend
                 self.ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE
-                vao_bolt.render(moderngl.TRIANGLES)
+                self.vao_bolt.render(moderngl.TRIANGLES, vertices=len(mesh_data) // 6)
                 self.ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA
 
         # 5. Instanced GPU Particles Pass
+        self.ctx.enable(moderngl.DEPTH_TEST)
         particle_bytes = particles.get_render_buffer_data()
         if len(particle_bytes) > 0:
-            vbo_particles = self.ctx.buffer(particle_bytes.tobytes())
-            vao_particles = self.ctx.vertex_array(
-                self.prog_particles,
-                [(vbo_particles, '3f 1f 1f 4f 1f/i', 'a_InstancePos', 'a_InstanceSize', 'a_InstanceType', 'a_InstanceColor', 'a_InstanceLifeRatio')]
-            )
+            raw_p_bytes = particle_bytes.tobytes()
+            self.vbo_particles_dyn.write(raw_p_bytes)
             self.prog_particles['u_PV'].write(pv.to_bytes())
             self.prog_particles['u_CamPos'].value = tuple(camera.position)
             
             self.ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE
-            vao_particles.render(moderngl.TRIANGLES, vertices=6, instances=len(particle_bytes))
+            self.vao_particles.render(moderngl.TRIANGLES, vertices=6, instances=len(particle_bytes))
             self.ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA
 
         # --------------------------------------------------------

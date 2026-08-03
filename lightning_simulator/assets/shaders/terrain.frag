@@ -24,9 +24,9 @@ uniform float u_LightningLightIntensity[8];
 
 out vec4 FragColor;
 
-const vec3 ROCK_BASE_COLOR = vec3(0.18, 0.16, 0.15);
+const vec3 ROCK_BASE_COLOR = vec3(0.20, 0.18, 0.17);
 const vec3 DIRT_COLOR = vec3(0.12, 0.10, 0.08);
-const vec3 MOLTEN_LAVA_COLOR = vec3(1.0, 0.35, 0.05);
+const vec3 MOLTEN_LAVA_COLOR = vec3(1.2, 0.45, 0.08);
 
 void main()
 {
@@ -47,39 +47,44 @@ void main()
 
     // Albedo Color with Scorch Mark Blending
     vec3 albedo = mix(ROCK_BASE_COLOR, DIRT_COLOR, clamp(v_WorldPos.y / 28.0, 0.0, 1.0));
-    albedo = mix(albedo, vec3(0.02, 0.02, 0.03), scorch * 0.85);  // Blackened carbon scorch
+    albedo = mix(albedo, vec3(0.01, 0.01, 0.02), scorch * 0.90);  // Blackened carbon scorch
 
-    // Sun Directional Light Diffuse + Specular
+    // Sun Directional Light Diffuse + Wet Rock Specular
     float NdotL = max(dot(N, L_sun), 0.0);
-    vec3 diffuseSun = vec3(0.9, 0.85, 0.75) * NdotL * 0.6;
+    vec3 diffuseSun = vec3(0.85, 0.80, 0.70) * NdotL * 0.55;
 
     vec3 H_sun = normalize(L_sun + V);
-    float specSun = pow(max(dot(N, H_sun), 0.0), 32.0) * 0.2;
+    float specSun = pow(max(dot(N, H_sun), 0.0), 48.0) * 0.4; // Wet surface specular
 
     // Lighting Accumulation
     vec3 totalLighting = (diffuseSun + vec3(specSun)) * ao;
 
-    // Dynamic Lightning Point Lights Illumination
+    // Dynamic Lightning Point Lights Diffuse + Wet Specular Reflections
     for (int i = 0; i < u_NumLightningLights; ++i)
     {
         vec3 lightDir = u_LightningLightPos[i] - v_WorldPos;
         float dist = length(lightDir);
         lightDir = normalize(lightDir);
 
-        float atten = 1.0 / (1.0 + 0.05 * dist + 0.008 * dist * dist);
+        float atten = 1.0 / (1.0 + 0.03 * dist + 0.005 * dist * dist);
         float NdotL_light = max(dot(N, lightDir), 0.0);
 
-        totalLighting += vec3(0.65, 0.8, 1.0) * NdotL_light * atten * u_LightningLightIntensity[i];
+        // Wet Rock Lightning Specular Reflection
+        vec3 H_light = normalize(lightDir + V);
+        float specLight = pow(max(dot(N, H_light), 0.0), 64.0) * 1.5;
+
+        vec3 electricColor = vec3(0.7, 0.88, 1.25);
+        totalLighting += electricColor * (NdotL_light + specLight) * atten * u_LightningLightIntensity[i];
     }
 
     // Ambient Lighting
-    vec3 ambient = vec3(0.08, 0.1, 0.15) * albedo * ao;
+    vec3 ambient = vec3(0.09, 0.11, 0.16) * albedo * ao;
     vec3 finalColor = ambient + albedo * totalLighting;
 
     // Molten Glowing Ground Emission (Heat Map)
     if (heat > 0.01)
     {
-        vec3 emissiveGlow = MOLTEN_LAVA_COLOR * pow(heat, 1.5) * 8.0;
+        vec3 emissiveGlow = MOLTEN_LAVA_COLOR * pow(heat, 1.4) * 9.0;
         finalColor += emissiveGlow;
     }
 
