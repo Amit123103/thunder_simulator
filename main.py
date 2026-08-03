@@ -299,22 +299,3 @@ class LightningSimulatorApp(mglw.WindowConfig):
 
 if __name__ == '__main__':
     mglw.run_window_config(LightningSimulatorApp)
-
-# Vercel Serverless Function Entrypoint Compatibility
-def app(environ, start_response):
-    status = '200 OK'
-    headers = [('Content-type', 'text/html; charset=utf-8')]
-    start_response(status, headers)
-    body = (
-        "<!DOCTYPE html><html><head><title>Cinematic Lightning Terrain Simulator</title>"
-        "<style>body{font-family:sans-serif;background:#0d1117;color:#c9d1d9;text-align:center;padding:50px;}"
-        "h1{color:#58a6ff;}</style></head><body>"
-        "<h1>⚡ Cinematic Lightning Terrain Simulator</h1>"
-        "<p>ModernGL 3D Real-time Simulation Engine</p>"
-        "<p><a href='https://github.com/Amit123103/thunder_simulator' style='color:#79c0ff;'>View GitHub Repository</a></p>"
-        "</body></html>"
-    )
-    return [body.encode('utf-8')]
-
-application = app
-handler = app
