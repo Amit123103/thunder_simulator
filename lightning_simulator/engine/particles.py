@@ -1,6 +1,6 @@
 """
-GPU Accelerated Particle System.
-Manages instanced billboard rendering for Sparks, Smoke Plumes, Rock Debris, Fire Embers, and Rain sheets.
+GPU Accelerated Particle System with Vectorized CPU Buffer Extraction.
+Manages instanced billboard rendering for Sparks, Smoke Plumes, Rock Debris, and Rain sheets.
 """
 
 import math
@@ -16,7 +16,7 @@ class ParticleType:
     RAIN = 3
 
 class ParticleSystem:
-    """Manages particle buffers, dynamic spawning on lightning impact, and CPU/GPU particle simulation physics."""
+    """Manages particle buffers, dynamic spawning on lightning impact, and fast vectorized particle simulation."""
 
     def __init__(self, max_particles=Config.MAX_PARTICLES):
         self.max_particles = max_particles
@@ -129,23 +129,25 @@ class ParticleSystem:
         # Rain loop repositioning
         rain_mask = mask & (self.particles[:, 9] == ParticleType.RAIN)
         below_ground = rain_mask & (self.particles[:, 1] < 0.0)
-        self.particles[below_ground, 1] = random.uniform(60.0, 80.0)
+        self.particles[below_ground, 1] = np.random.uniform(60.0, 80.0, size=np.sum(below_ground))
         self.particles[below_ground, 0] = np.random.uniform(-60.0, 60.0, size=np.sum(below_ground))
         self.particles[below_ground, 2] = np.random.uniform(-60.0, 60.0, size=np.sum(below_ground))
 
     def get_render_buffer_data(self):
-        """Prepares instanced particle float array for GPU vertex shader rendering."""
+        """Fast vectorized particle buffer extraction for 120+ FPS GPU instanced rendering."""
         active_mask = self.particles[:, 7] > 0.0
+        n_active = np.count_nonzero(active_mask)
+        if n_active == 0:
+            return np.zeros((0, 10), dtype=np.float32)
+
         active_data = self.particles[active_mask]
         
         # Format: Pos (3F), Size (1F), Type (1F), Color (4F), LifeRatio (1F)
-        if len(active_data) == 0:
-            return np.zeros((0, 10), dtype=np.float32)
+        buf = np.empty((n_active, 10), dtype=np.float32)
+        buf[:, 0:3] = active_data[:, 0:3]                     # Position
+        buf[:, 3]   = active_data[:, 6]                       # Size
+        buf[:, 4]   = active_data[:, 9]                       # Type
+        buf[:, 5:9] = active_data[:, 10:14]                   # Color RGBA
+        buf[:, 9]   = active_data[:, 7] / np.maximum(0.01, active_data[:, 8]) # LifeRatio
 
-        pos = active_data[:, 0:3]
-        size = active_data[:, 6:7]
-        ptype = active_data[:, 9:10]
-        color = active_data[:, 10:14]
-        life_ratio = (active_data[:, 7:8] / np.maximum(0.01, active_data[:, 8:9]))
-
-        return np.hstack([pos, size, ptype, color, life_ratio]).astype(np.float32)
+        return buf
