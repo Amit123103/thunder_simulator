@@ -298,7 +298,7 @@ class LightningSimulatorApp(mglw.WindowConfig):
             self.camera.process_mouse_zoom(y_offset)
 
 def start_cloud_health_server():
-    """Binds to Render's $PORT for Web Service health checks and web showcase."""
+    """Binds to Render's $PORT for Web Service health checks and live 3D WebGL simulator."""
     import threading
     from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -307,231 +307,329 @@ def start_cloud_health_server():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinematic Lightning Terrain Simulator | Live Cloud Engine</title>
+    <title>Cinematic Lightning Terrain Simulator | Live 3D WebGL Engine</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-dark: #07090e;
-            --card-bg: rgba(18, 24, 38, 0.75);
-            --border-color: rgba(99, 102, 241, 0.25);
-            --accent-purple: #a855f7;
-            --accent-cyan: #38bdf8;
-            --accent-glow: rgba(168, 85, 247, 0.35);
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            line-height: 1.6;
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.18) 0%, transparent 60%),
-                radial-gradient(circle at 80% 40%, rgba(56, 189, 248, 0.12) 0%, transparent 50%);
-        }
-        header {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2.5rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #05070c; font-family: 'Inter', sans-serif; color: #fff; }
+        
+        #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .ui-header {
+            position: absolute; top: 20px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 10; pointer-events: none;
         }
         .logo {
-            font-weight: 800;
-            font-size: 1.35rem;
-            letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #fff 30%, var(--accent-cyan));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, #38bdf8);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            display: flex; align-items: center; gap: 0.6rem; pointer-events: auto;
+            text-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
         }
         .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            color: #4ade80;
-            padding: 0.4rem 1rem;
-            border-radius: 99px;
-            font-size: 0.85rem;
-            font-weight: 600;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35);
+            color: #38bdf8; padding: 0.5rem 1.2rem; border-radius: 99px; font-size: 0.85rem; font-weight: 600;
+            backdrop-filter: blur(12px); pointer-events: auto;
         }
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            background-color: #22c55e;
-            border-radius: 50%;
-            box-shadow: 0 0 10px #22c55e;
-            animation: pulse 2s infinite;
+        .pulse-dot { width: 8px; height: 8px; background-color: #38bdf8; border-radius: 50%; box-shadow: 0 0 12px #38bdf8; animation: pulse 1.8s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.6; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.6; } }
+
+        .ui-controls {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 1rem; z-index: 10;
         }
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        .btn {
+            background: rgba(18, 24, 38, 0.85); border: 1px solid rgba(168, 85, 247, 0.4);
+            color: #fff; padding: 0.8rem 1.5rem; border-radius: 12px; font-size: 0.95rem; font-weight: 600;
+            cursor: pointer; transition: all 0.25s ease; backdrop-filter: blur(16px);
+            display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
-        .github-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            padding: 0.6rem 1.2rem;
-            border-radius: 99px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: all 0.25s ease;
-            backdrop-filter: blur(12px);
+        .btn:hover { background: rgba(168, 85, 247, 0.3); border-color: #a855f7; transform: translateY(-2px); box-shadow: 0 0 25px rgba(168, 85, 247, 0.4); }
+        .btn:active { transform: translateY(0); }
+        
+        .hud-telemetry {
+            position: absolute; top: 80px; left: 20px;
+            background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255,255,255,0.1);
+            padding: 1rem 1.25rem; border-radius: 12px; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem; color: #94a3b8; backdrop-filter: blur(12px); z-index: 10;
+            pointer-events: none; line-height: 1.8;
         }
-        .github-btn:hover {
-            border-color: var(--accent-purple);
-            box-shadow: 0 0 20px var(--accent-glow);
-            transform: translateY(-2px);
-        }
-        .hero {
-            max-width: 1000px;
-            margin: 3.5rem auto 2rem;
-            text-align: center;
-            padding: 0 1.5rem;
-        }
-        h1 {
-            font-size: 3.5rem;
-            font-weight: 800;
-            line-height: 1.15;
-            letter-spacing: -1.5px;
-            margin-bottom: 1.5rem;
-            background: linear-gradient(180deg, #ffffff 40%, #94a3b8);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .hero p {
-            font-size: 1.25rem;
-            color: var(--text-muted);
-            max-width: 720px;
-            margin: 0 auto 2.5rem;
-            font-weight: 400;
-        }
-        .code-box {
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 14px;
-            padding: 1.5rem 2rem;
-            max-width: 700px;
-            margin: 0 auto 4rem;
-            text-align: left;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.95rem;
-            color: #e6edf3;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-        }
-        .code-box code { color: #79c0ff; }
-        .features-grid {
-            max-width: 1200px;
-            margin: 2rem auto 6rem;
-            padding: 0 1.5rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 1.75rem;
-        }
-        .feature-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 2rem;
-            backdrop-filter: blur(16px);
-            transition: all 0.3s ease;
-        }
-        .feature-card:hover {
-            border-color: var(--accent-cyan);
-            transform: translateY(-4px);
-            box-shadow: 0 12px 30px rgba(56, 189, 248, 0.15);
-        }
-        .feature-icon { font-size: 2rem; margin-bottom: 1rem; }
-        .feature-card h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.75rem; color: #f8fafc; }
-        .feature-card p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; }
-        footer {
-            text-align: center;
-            padding: 3rem 1.5rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-        footer a { color: var(--accent-cyan); text-decoration: none; }
-        @media (max-width: 768px) { h1 { font-size: 2.25rem; } }
+        .hud-val { color: #38bdf8; font-weight: bold; }
     </style>
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
-    <header>
-        <div class="logo">
-            <span>⚡</span> Thunder Simulator
-        </div>
-        <div style="display: flex; gap: 1rem; align-items: center;">
-            <div class="status-badge">
-                <div class="pulse-dot"></div> Render Cloud Live
-            </div>
-            <a href="https://github.com/Amit123103/thunder_simulator" target="_blank" class="github-btn">
-                GitHub Repository
-            </a>
-        </div>
-    </header>
+    <div id="canvas-container"></div>
 
-    <section class="hero">
-        <h1>Cinematic Lightning & Terrain Engine</h1>
-        <p>A real-time 3D interactive OpenGL graphics engine featuring volumetric storm clouds, procedural mountain crater deformation, camera-facing ribbon lightning, and spatial audio synthesis.</p>
+    <div class="ui-header">
+        <div class="logo"><span>⚡</span> Thunder Simulator 3D</div>
+        <div class="status-badge"><div class="pulse-dot"></div> Live 3D WebGL Engine</div>
+    </div>
 
-        <div class="code-box">
-            <span style="color: #8b949e;"># Run Locally on Desktop (Windows / Mac / Linux)</span><br>
-            <code>git clone https://github.com/Amit123103/thunder_simulator.git</code><br>
-            <code>cd thunder_simulator</code><br>
-            <code>pip install -r requirements.txt</code><br>
-            <code>python main.py</code>
-        </div>
-    </section>
+    <div class="hud-telemetry">
+        <div>ENGINE: <span class="hud-val">WebGL 3D Core</span></div>
+        <div>STORM MODE: <span class="hud-val" id="hud-storm">AUTO ACTIVE</span></div>
+        <div>LIGHTNING BOLTS: <span class="hud-val" id="hud-bolts">0 STRIKES</span></div>
+        <div>CAMERA: <span class="hud-val" id="hud-orbit">AUTO ORBIT</span></div>
+    </div>
 
-    <section class="features-grid">
-        <div class="feature-card">
-            <div class="feature-icon">⚡</div>
-            <h3>Stepped Leader Propagation</h3>
-            <p>Downward cloud-to-earth lightning leader animation with camera-facing 3D ribbon billboards and triple-layer plasma corona GLSL shaders.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">☁️</div>
-            <h3>Volumetric Storm Clouds</h3>
-            <p>3D FBM procedural noise raymarching with dual Henyey-Greenstein silver-lining scattering and internal flash volume illumination.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🌋</div>
-            <h3>Procedural Crater Excavation</h3>
-            <p>Real-time ground excavation physics, molten lava heat emission maps, carbon scorch marks, and expanding kinetic shockwave rings.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">✨</div>
-            <h3>HDR & Pyramid Bloom</h3>
-            <p>Multi-pass high-dynamic-range rendering pipeline with ACES filmic tonemapping, wet rock specular reflections, and atmospheric strobe sky flashes.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🔊</div>
-            <h3>Procedural 3D Audio</h3>
-            <p>Dynamic spatial audio synthesis for high-voltage electrical crackles, kinetic ground blasts, and distance-delayed thunder rumbles.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🎥</div>
-            <h3>Slow Mountain Auto-Orbit</h3>
-            <p>Automated cinematic slow camera orbit motion with interactive ImGui telemetry HUD controls and export tools.</p>
-        </div>
-    </section>
+    <div class="ui-controls">
+        <button class="btn" onclick="triggerLightning()">⚡ Strike Lightning</button>
+        <button class="btn" onclick="toggleAutoOrbit()">🎥 Toggle Orbit</button>
+        <button class="btn" onclick="toggleAutoStorm()">⛈️ Auto Storm Mode</button>
+    </div>
 
-    <footer>
-        <p>Built with Python 3.11, ModernGL, PyGLM, and GLSL Shaders. View source code on <a href="https://github.com/Amit123103/thunder_simulator" target="_blank">GitHub</a>.</p>
-    </footer>
+    <script>
+        // --- WebGL 3D Scene Setup ---
+        let scene, camera, renderer, controls;
+        let terrainMesh, skyMesh, lightFlash, hitPointLight;
+        let activeBolts = [];
+        let strikeCount = 0;
+        let autoOrbit = true;
+        let autoStorm = true;
+        let autoStormTimer = 0;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playThunderSound(distance) {
+            if (!audioCtx) return;
+            try {
+                // High-voltage Crackle
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                let now = audioCtx.currentTime;
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+
+                // Distance Thunder Rumble
+                setTimeout(() => {
+                    let noise = audioCtx.createBufferSource();
+                    let buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+                    let data = buffer.getChannelData(0);
+                    for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
+                    noise.buffer = buffer;
+
+                    let filter = audioCtx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 120;
+
+                    let rGain = audioCtx.createGain();
+                    let rNow = audioCtx.currentTime;
+                    rGain.gain.setValueAtTime(0.5, rNow);
+                    rGain.gain.exponentialRampToValueAtTime(0.001, rNow + 1.8);
+
+                    noise.connect(filter);
+                    filter.connect(rGain);
+                    rGain.connect(audioCtx.destination);
+                    noise.start(rNow);
+                }, Math.min(250, distance * 2));
+            } catch(e){}
+        }
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x060913, 0.015);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 25, 65);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.25;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05;
+
+            // Ambient Light
+            const ambient = new THREE.AmbientLight(0x1a233a, 0.6);
+            scene.add(ambient);
+
+            // Sky Background Glow
+            lightFlash = new THREE.DirectionalLight(0x93c5fd, 0.2);
+            lightFlash.position.set(0, 100, 0);
+            scene.add(lightFlash);
+
+            // Strike Hit Light
+            hitPointLight = new THREE.PointLight(0xa855f7, 0, 80);
+            scene.add(hitPointLight);
+
+            // Procedural Mountain Terrain
+            const geo = new THREE.PlaneGeometry(140, 140, 120, 120);
+            geo.rotateX(-Math.PI / 2);
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i);
+                let z = pos.getZ(i);
+                let dist = Math.sqrt(x*x + z*z);
+                let height = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 14.0 
+                           + Math.sin(x * 0.15 + z * 0.15) * 6.0 
+                           - (dist * 0.1);
+                pos.setY(i, Math.max(-2, height));
+            }
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                roughness: 0.7,
+                metalness: 0.3,
+                flatShading: true
+            });
+            terrainMesh = new THREE.Mesh(geo, mat);
+            scene.add(terrainMesh);
+
+            // Storm Clouds
+            createClouds();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createClouds() {
+            const cloudGeo = new THREE.SphereGeometry(18, 16, 16);
+            const cloudMat = new THREE.MeshStandardMaterial({
+                color: 0x0f172a,
+                roughness: 0.9,
+                transparent: true,
+                opacity: 0.75
+            });
+            for (let i = 0; i < 15; i++) {
+                let cloud = new THREE.Mesh(cloudGeo, cloudMat);
+                cloud.position.set(
+                    (Math.random() - 0.5) * 120,
+                    45 + Math.random() * 10,
+                    (Math.random() - 0.5) * 120
+                );
+                cloud.scale.set(Math.random() * 1.5 + 1.2, 0.4, Math.random() * 1.5 + 1.2);
+                scene.add(cloud);
+            }
+        }
+
+        function triggerLightning() {
+            initAudio();
+            strikeCount++;
+            document.getElementById('hud-bolts').innerText = strikeCount + " STRIKES";
+
+            let targetX = (Math.random() - 0.5) * 60;
+            let targetZ = (Math.random() - 0.5) * 60;
+            let targetY = 3.0;
+
+            // Generate Fractal 3D Lightning Line
+            let points = [];
+            let curr = new THREE.Vector3(targetX + (Math.random() - 0.5) * 15, 55, targetZ + (Math.random() - 0.5) * 15);
+            let end = new THREE.Vector3(targetX, targetY, targetZ);
+            let segments = 22;
+
+            for (let i = 0; i <= segments; i++) {
+                let t = i / segments;
+                let p = new THREE.Vector3().lerpVectors(curr, end, t);
+                if (i > 0 && i < segments) {
+                    p.x += (Math.random() - 0.5) * 3.5;
+                    p.y += (Math.random() - 0.5) * 1.5;
+                    p.z += (Math.random() - 0.5) * 3.5;
+                }
+                points.push(p);
+            }
+
+            const boltGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const boltMat = new THREE.LineBasicMaterial({ color: 0xe0e7ff, linewidth: 3 });
+            const boltLine = new THREE.Line(boltGeo, boltMat);
+            scene.add(boltLine);
+
+            // Flash Illumination
+            lightFlash.intensity = 4.5;
+            hitPointLight.position.set(targetX, targetY + 3, targetZ);
+            hitPointLight.intensity = 15;
+            hitPointLight.color.setHex(Math.random() > 0.5 ? 0x38bdf8 : 0xc084fc);
+
+            let distance = camera.position.distanceTo(end);
+            playThunderSound(distance);
+
+            activeBolts.push({ line: boltLine, life: 0.18 });
+        }
+
+        function toggleAutoOrbit() {
+            autoOrbit = !autoOrbit;
+            document.getElementById('hud-orbit').innerText = autoOrbit ? "AUTO ORBIT" : "MANUAL";
+        }
+
+        function toggleAutoStorm() {
+            autoStorm = !autoStorm;
+            document.getElementById('hud-storm').innerText = autoStorm ? "AUTO ACTIVE" : "MANUAL";
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            // Auto Orbit Camera Motion
+            if (autoOrbit) {
+                let angle = time * 0.00015;
+                camera.position.x = Math.sin(angle) * 70;
+                camera.position.z = Math.cos(angle) * 70;
+                camera.lookAt(0, 5, 0);
+            }
+            controls.update();
+
+            // Auto Storm Trigger
+            if (autoStorm) {
+                autoStormTimer += 0.016;
+                if (autoStormTimer > 1.2) {
+                    autoStormTimer = 0;
+                    triggerLightning();
+                }
+            }
+
+            // Lightning Bolt Decay & Flash Decay
+            if (lightFlash.intensity > 0.2) lightFlash.intensity *= 0.88;
+            if (hitPointLight.intensity > 0) hitPointLight.intensity *= 0.85;
+
+            for (let i = activeBolts.length - 1; i >= 0; i--) {
+                activeBolts[i].life -= 0.016;
+                if (activeBolts[i].life <= 0) {
+                    scene.remove(activeBolts[i].line);
+                    activeBolts[i].line.geometry.dispose();
+                    activeBolts[i].line.material.dispose();
+                    activeBolts.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            initScene();
+            animate(0);
+        };
+    </script>
 </body>
 </html>"""
 
