@@ -298,16 +298,249 @@ class LightningSimulatorApp(mglw.WindowConfig):
             self.camera.process_mouse_zoom(y_offset)
 
 def start_cloud_health_server():
-    """Binds to Render's $PORT for Web Service health checks."""
+    """Binds to Render's $PORT for Web Service health checks and web showcase."""
     import threading
     from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    HTML_PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinematic Lightning Terrain Simulator | Live Cloud Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #07090e;
+            --card-bg: rgba(18, 24, 38, 0.75);
+            --border-color: rgba(99, 102, 241, 0.25);
+            --accent-purple: #a855f7;
+            --accent-cyan: #38bdf8;
+            --accent-glow: rgba(168, 85, 247, 0.35);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.18) 0%, transparent 60%),
+                radial-gradient(circle at 80% 40%, rgba(56, 189, 248, 0.12) 0%, transparent 50%);
+        }
+        header {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-weight: 800;
+            font-size: 1.35rem;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, var(--accent-cyan));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #4ade80;
+            padding: 0.4rem 1rem;
+            border-radius: 99px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .github-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.6rem 1.2rem;
+            border-radius: 99px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(12px);
+        }
+        .github-btn:hover {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 20px var(--accent-glow);
+            transform: translateY(-2px);
+        }
+        .hero {
+            max-width: 1000px;
+            margin: 3.5rem auto 2rem;
+            text-align: center;
+            padding: 0 1.5rem;
+        }
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -1.5px;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(180deg, #ffffff 40%, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            max-width: 720px;
+            margin: 0 auto 2.5rem;
+            font-weight: 400;
+        }
+        .code-box {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 14px;
+            padding: 1.5rem 2rem;
+            max-width: 700px;
+            margin: 0 auto 4rem;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            color: #e6edf3;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        .code-box code { color: #79c0ff; }
+        .features-grid {
+            max-width: 1200px;
+            margin: 2rem auto 6rem;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.75rem;
+        }
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            backdrop-filter: blur(16px);
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(56, 189, 248, 0.15);
+        }
+        .feature-icon { font-size: 2rem; margin-bottom: 1rem; }
+        .feature-card h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.75rem; color: #f8fafc; }
+        .feature-card p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; }
+        footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        footer a { color: var(--accent-cyan); text-decoration: none; }
+        @media (max-width: 768px) { h1 { font-size: 2.25rem; } }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span>⚡</span> Thunder Simulator
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <div class="status-badge">
+                <div class="pulse-dot"></div> Render Cloud Live
+            </div>
+            <a href="https://github.com/Amit123103/thunder_simulator" target="_blank" class="github-btn">
+                GitHub Repository
+            </a>
+        </div>
+    </header>
+
+    <section class="hero">
+        <h1>Cinematic Lightning & Terrain Engine</h1>
+        <p>A real-time 3D interactive OpenGL graphics engine featuring volumetric storm clouds, procedural mountain crater deformation, camera-facing ribbon lightning, and spatial audio synthesis.</p>
+
+        <div class="code-box">
+            <span style="color: #8b949e;"># Run Locally on Desktop (Windows / Mac / Linux)</span><br>
+            <code>git clone https://github.com/Amit123103/thunder_simulator.git</code><br>
+            <code>cd thunder_simulator</code><br>
+            <code>pip install -r requirements.txt</code><br>
+            <code>python main.py</code>
+        </div>
+    </section>
+
+    <section class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Stepped Leader Propagation</h3>
+            <p>Downward cloud-to-earth lightning leader animation with camera-facing 3D ribbon billboards and triple-layer plasma corona GLSL shaders.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">☁️</div>
+            <h3>Volumetric Storm Clouds</h3>
+            <p>3D FBM procedural noise raymarching with dual Henyey-Greenstein silver-lining scattering and internal flash volume illumination.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🌋</div>
+            <h3>Procedural Crater Excavation</h3>
+            <p>Real-time ground excavation physics, molten lava heat emission maps, carbon scorch marks, and expanding kinetic shockwave rings.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">✨</div>
+            <h3>HDR & Pyramid Bloom</h3>
+            <p>Multi-pass high-dynamic-range rendering pipeline with ACES filmic tonemapping, wet rock specular reflections, and atmospheric strobe sky flashes.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔊</div>
+            <h3>Procedural 3D Audio</h3>
+            <p>Dynamic spatial audio synthesis for high-voltage electrical crackles, kinetic ground blasts, and distance-delayed thunder rumbles.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🎥</div>
+            <h3>Slow Mountain Auto-Orbit</h3>
+            <p>Automated cinematic slow camera orbit motion with interactive ImGui telemetry HUD controls and export tools.</p>
+        </div>
+    </section>
+
+    <footer>
+        <p>Built with Python 3.11, ModernGL, PyGLM, and GLSL Shaders. View source code on <a href="https://github.com/Amit123103/thunder_simulator" target="_blank">GitHub</a>.</p>
+    </footer>
+</body>
+</html>"""
 
     class HealthHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
-            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
-            self.wfile.write("⚡ Cinematic Lightning Terrain Simulator Active".encode('utf-8'))
+            self.wfile.write(HTML_PAGE.encode('utf-8'))
 
         def log_message(self, format, *args):
             pass
