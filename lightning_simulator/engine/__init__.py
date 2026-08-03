@@ -11,7 +11,6 @@ from .clouds import CloudSystem
 from .atmosphere import Atmosphere
 from .fog import Fog
 from .particles import ParticleSystem
-from .waterfall import Waterfall
 from .audio import AudioEngine
 from .ui import UIManager
 from .renderer import MasterRenderer
@@ -26,7 +25,6 @@ __all__ = [
     'Atmosphere',
     'Fog',
     'ParticleSystem',
-    'Waterfall',
     'AudioEngine',
     'UIManager',
     'MasterRenderer'
