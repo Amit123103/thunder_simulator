@@ -14,7 +14,7 @@ out vec4 FragColor;
 
 void main()
 {
-    // Reconstruct Ray Direction
+    // Reconstruct Ray Direction from screen quad
     vec4 clipPos = vec4(v_TexCoord * 2.0 - 1.0, 1.0, 1.0);
     vec4 viewPos = u_InverseViewProj * clipPos;
     vec3 rayDir = normalize(viewPos.xyz / viewPos.w - u_CamPos);
@@ -33,17 +33,18 @@ void main()
     vec3 mieColor = vec3(u_Mie) * mPhase * vec3(1.0, 0.9, 0.7);
 
     // Dark twilight storm sky background color tint
-    vec3 zenithColor = vec3(0.02, 0.04, 0.09);
-    vec3 horizonColor = vec3(0.08, 0.12, 0.18);
+    vec3 zenithColor = vec3(0.015, 0.03, 0.07);
+    vec3 horizonColor = vec3(0.06, 0.10, 0.16);
     float heightFactor = clamp(rayDir.y, 0.0, 1.0);
     vec3 skyBase = mix(horizonColor, zenithColor, heightFactor);
 
     vec3 finalSky = skyBase + rayleighColor + mieColor;
 
-    // Atmospheric Lightning Flash Illumination Tint
-    if (u_FlashIntensity > 0.01)
+    // Atmospheric Lightning Strobe Flash Illumination Tint
+    if (u_FlashIntensity > 0.005)
     {
-        finalSky += vec3(0.5, 0.7, 1.0) * u_FlashIntensity * 0.85;
+        vec3 flashColor = vec3(0.65, 0.82, 1.25);
+        finalSky += flashColor * u_FlashIntensity * 1.4;
     }
 
     FragColor = vec4(finalSky, 1.0);

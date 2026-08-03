@@ -126,12 +126,12 @@ class ParticleSystem:
         non_rain_mask = mask & (self.particles[:, 9] != ParticleType.RAIN)
         self.particles[non_rain_mask, 7] -= delta_time
 
-        # Rain loop repositioning
+        # Rain loop repositioning (Zero-allocation wrap-around)
         rain_mask = mask & (self.particles[:, 9] == ParticleType.RAIN)
         below_ground = rain_mask & (self.particles[:, 1] < 0.0)
-        self.particles[below_ground, 1] = np.random.uniform(60.0, 80.0, size=np.sum(below_ground))
-        self.particles[below_ground, 0] = np.random.uniform(-60.0, 60.0, size=np.sum(below_ground))
-        self.particles[below_ground, 2] = np.random.uniform(-60.0, 60.0, size=np.sum(below_ground))
+        n_below = np.count_nonzero(below_ground)
+        if n_below > 0:
+            self.particles[below_ground, 1] += 75.0
 
         self.active_count = int(np.count_nonzero(self.particles[:, 7] > 0.0))
 
