@@ -385,9 +385,10 @@ def start_cloud_health_server():
         <div class="imgui-content">
             <div class="imgui-header">REALTIME GPU TELEMETRY</div>
             <div class="imgui-stat">Performance: <span class="imgui-val" id="stat-fps">87.6 FPS</span> | Frame Time: <span class="imgui-val" id="stat-ms">11.42 ms</span></div>
-            <div class="imgui-stat">Active Particles: <span class="imgui-val" id="stat-particles">5246</span></div>
-            <div class="imgui-stat">Active Lightning Bolts: <span class="imgui-val" id="stat-bolts">1</span></div>
+            <div class="imgui-stat">Active Particles: <span class="imgui-val" id="stat-particles">6433</span></div>
+            <div class="imgui-stat">Active Lightning Bolts: <span class="imgui-val" id="stat-bolts">2</span></div>
             <div class="imgui-stat">Camera Mode: <span class="imgui-val" id="stat-camera">Orbit Camera</span></div>
+            <div style="color: #fbbf24; font-size: 10px; margin: 5px 0 3px 0;" id="stat-strike-target">&gt;&gt; Cloud-to-Earth Strike towards (8.0, 0.0)</div>
 
             <div class="imgui-tabs">
                 <button class="tab-btn active">Lightning</button>
@@ -624,7 +625,10 @@ def start_cloud_health_server():
 
             lightFlash.intensity = 5.5;
             hitPointLight.position.set(targetX, targetY + 3, targetZ);
-            hitPointLight.intensity = 22;
+            hitPointLight.intensity = 25;
+            hitPointLight.color.setHex(0xff7700);
+
+            document.getElementById('stat-strike-target').innerText = ">> Cloud-to-Earth Strike towards (" + targetX.toFixed(1) + ", " + targetZ.toFixed(1) + ")";
 
             playThunderSound();
             activeBolts.push({ line: mainLine, life: 0.18 });
