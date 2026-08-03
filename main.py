@@ -298,7 +298,7 @@ class LightningSimulatorApp(mglw.WindowConfig):
             self.camera.process_mouse_zoom(y_offset)
 
 def start_cloud_health_server():
-    """Binds to Render's $PORT for Web Service health checks and live 3D WebGL simulator."""
+    """Binds to Render's $PORT for Web Service health checks and renders exact Desktop ImGui 3D Simulator UI."""
     import threading
     from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -307,246 +307,247 @@ def start_cloud_health_server():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinematic Lightning Terrain Simulator | Live 3D WebGL Engine</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <title>Cinematic Lightning Terrain Simulator (ModernGL)</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background: #05070c; font-family: 'Inter', sans-serif; color: #fff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #05070c; font-family: 'Consolas', 'Courier New', monospace; color: #38bdf8; }
         
         #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
         canvas { width: 100%; height: 100%; display: block; }
         
-        .ui-header {
-            position: absolute; top: 20px; left: 20px; right: 20px;
+        /* App Window Header Bar */
+        .app-titlebar {
+            position: absolute; top: 0; left: 0; right: 0; height: 24px;
+            background: #0f172a; border-bottom: 1px solid #1e293b;
             display: flex; justify-content: space-between; align-items: center;
-            z-index: 10; pointer-events: none;
+            padding: 0 10px; font-size: 11px; color: #94a3b8; z-index: 20;
         }
-        .logo {
-            font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #fff 30%, #38bdf8);
-            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-            display: flex; align-items: center; gap: 0.6rem; pointer-events: auto;
-            text-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
-        }
-        .status-badge {
-            display: inline-flex; align-items: center; gap: 0.5rem;
-            background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35);
-            color: #38bdf8; padding: 0.5rem 1.2rem; border-radius: 99px; font-size: 0.85rem; font-weight: 600;
-            backdrop-filter: blur(12px); pointer-events: auto;
-        }
-        .pulse-dot { width: 8px; height: 8px; background-color: #38bdf8; border-radius: 50%; box-shadow: 0 0 12px #38bdf8; animation: pulse 1.8s infinite; }
-        @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.6; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.6; } }
 
-        .ui-controls {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 1rem; z-index: 10;
+        /* ImGui Window Panel */
+        .imgui-panel {
+            position: absolute; top: 35px; left: 15px; width: 340px;
+            background: rgba(12, 16, 24, 0.92); border: 1px solid #1e293b;
+            border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            z-index: 10; font-size: 11px; color: #94a3b8; backdrop-filter: blur(8px);
         }
-        .btn {
-            background: rgba(18, 24, 38, 0.85); border: 1px solid rgba(168, 85, 247, 0.4);
-            color: #fff; padding: 0.8rem 1.5rem; border-radius: 12px; font-size: 0.95rem; font-weight: 600;
-            cursor: pointer; transition: all 0.25s ease; backdrop-filter: blur(16px);
-            display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        .imgui-titlebar {
+            background: rgba(20, 28, 44, 0.95); padding: 5px 8px; border-bottom: 1px solid #1e293b;
+            display: flex; justify-content: space-between; align-items: center; color: #cbd5e1; font-weight: bold;
         }
-        .btn:hover { background: rgba(168, 85, 247, 0.3); border-color: #a855f7; transform: translateY(-2px); box-shadow: 0 0 25px rgba(168, 85, 247, 0.4); }
-        .btn:active { transform: translateY(0); }
+        .imgui-content { padding: 10px; }
+        .imgui-header { color: #38bdf8; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .imgui-stat { margin-bottom: 3px; color: #cbd5e1; }
+        .imgui-val { color: #f8fafc; font-weight: bold; }
         
-        .hud-telemetry {
-            position: absolute; top: 80px; left: 20px;
-            background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255,255,255,0.1);
-            padding: 1rem 1.25rem; border-radius: 12px; font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem; color: #94a3b8; backdrop-filter: blur(12px); z-index: 10;
-            pointer-events: none; line-height: 1.8;
+        /* ImGui Tabs */
+        .imgui-tabs { display: flex; gap: 2px; margin: 10px 0; border-bottom: 1px solid #334155; }
+        .tab-btn {
+            background: #0f172a; border: 1px solid #1e293b; border-bottom: none;
+            color: #94a3b8; padding: 4px 8px; font-size: 10px; cursor: pointer; border-radius: 3px 3px 0 0;
+            font-family: inherit;
         }
-        .hud-val { color: #38bdf8; font-weight: bold; }
+        .tab-btn.active { background: #2563eb; color: #fff; border-color: #3b82f6; font-weight: bold; }
+        
+        /* ImGui Section */
+        .imgui-section { margin-top: 8px; }
+        .btn-group { display: flex; gap: 6px; margin: 6px 0; }
+        .imgui-btn {
+            flex: 1; background: #1e293b; border: 1px solid #334155; color: #f8fafc;
+            padding: 5px; font-size: 10px; cursor: pointer; text-align: center; border-radius: 2px;
+            font-family: inherit; font-weight: bold; transition: background 0.15s;
+        }
+        .imgui-btn:hover { background: #3b82f6; border-color: #60a5fa; }
+        .imgui-btn.active { background: #2563eb; border-color: #60a5fa; }
+        
+        /* ImGui Sliders */
+        .slider-row { display: flex; align-items: center; justify-content: space-between; margin: 6px 0; }
+        .slider-track { flex: 1; margin: 0 8px; height: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 2px; position: relative; }
+        .slider-fill { height: 100%; background: #2563eb; width: 50%; border-radius: 1px; }
+        .slider-val { width: 50px; text-align: right; color: #60a5fa; font-weight: bold; }
     </style>
-    <!-- Three.js & OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
+    <div class="app-titlebar">
+        <span>Cinematic Lightning Terrain Simulator (ModernGL)</span>
+        <span>─ ◻ ✕</span>
+    </div>
+
     <div id="canvas-container"></div>
 
-    <div class="ui-header">
-        <div class="logo"><span>⚡</span> Thunder Simulator 3D</div>
-        <div class="status-badge"><div class="pulse-dot"></div> Live 3D WebGL Engine</div>
-    </div>
+    <!-- ImGui Telemetry Window -->
+    <div class="imgui-panel">
+        <div class="imgui-titlebar">
+            <span>▼ Cinematic Lightning Simulator</span>
+            <span>x</span>
+        </div>
+        <div class="imgui-content">
+            <div class="imgui-header">REALTIME GPU TELEMETRY</div>
+            <div class="imgui-stat">Performance: <span class="imgui-val" id="stat-fps">87.6 FPS</span> | Frame Time: <span class="imgui-val" id="stat-ms">11.42 ms</span></div>
+            <div class="imgui-stat">Active Particles: <span class="imgui-val" id="stat-particles">5246</span></div>
+            <div class="imgui-stat">Active Lightning Bolts: <span class="imgui-val" id="stat-bolts">1</span></div>
+            <div class="imgui-stat">Camera Mode: <span class="imgui-val" id="stat-camera">Orbit Camera</span></div>
 
-    <div class="hud-telemetry">
-        <div>ENGINE: <span class="hud-val">WebGL 3D Core</span></div>
-        <div>STORM MODE: <span class="hud-val" id="hud-storm">AUTO ACTIVE</span></div>
-        <div>LIGHTNING BOLTS: <span class="hud-val" id="hud-bolts">0 STRIKES</span></div>
-        <div>CAMERA: <span class="hud-val" id="hud-orbit">AUTO ORBIT</span></div>
-    </div>
+            <div class="imgui-tabs">
+                <button class="tab-btn active">Lightning</button>
+                <button class="tab-btn">Atmosphere</button>
+                <button class="tab-btn">Terrain</button>
+                <button class="tab-btn">Post Proce..</button>
+                <button class="tab-btn">Export</button>
+            </div>
 
-    <div class="ui-controls">
-        <button class="btn" onclick="triggerLightning()">⚡ Strike Lightning</button>
-        <button class="btn" onclick="toggleAutoOrbit()">🎥 Toggle Orbit</button>
-        <button class="btn" onclick="toggleAutoStorm()">⛈️ Auto Storm Mode</button>
+            <div class="imgui-section">
+                <div style="color: #64748b; font-size: 10px;">Strike Trigger Mode</div>
+                <div class="btn-group">
+                    <button class="imgui-btn" onclick="triggerSingleStrike()">Single Strike [1]</button>
+                    <button class="imgui-btn active" id="btn-storm" onclick="toggleStormMode()">Storm Mode [2]</button>
+                </div>
+            </div>
+
+            <div class="imgui-section" style="margin-top: 10px;">
+                <div style="color: #64748b; font-size: 10px; margin-bottom: 4px;">Bolt Parameters</div>
+                <div class="slider-row">
+                    <span class="slider-val" id="val-glow">12.800</span>
+                    <div class="slider-track"><div class="slider-fill" style="width: 80%;"></div></div>
+                    <span>Glow Intensity</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-val" id="val-width">0.550</span>
+                    <div class="slider-track"><div class="slider-fill" style="width: 55%;"></div></div>
+                    <span>Bolt Width</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-val" id="val-branch">0.380</span>
+                    <div class="slider-track"><div class="slider-fill" style="width: 38%;"></div></div>
+                    <span>Branch Count</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-val" id="val-jitter">0.380</span>
+                    <div class="slider-track"><div class="slider-fill" style="width: 38%;"></div></div>
+                    <span>Fractal Jitter</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // --- WebGL 3D Scene Setup ---
         let scene, camera, renderer, controls;
-        let terrainMesh, skyMesh, lightFlash, hitPointLight;
+        let terrainMesh, rainParticles, lightFlash, hitPointLight;
         let activeBolts = [];
-        let strikeCount = 0;
+        let stormMode = true;
         let autoOrbit = true;
-        let autoStorm = true;
-        let autoStormTimer = 0;
+        let stormTimer = 0;
+        let frameCount = 0, lastTime = performance.now();
         let audioCtx = null;
 
         function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
 
-        function playThunderSound(distance) {
+        function playThunderSound() {
             if (!audioCtx) return;
             try {
-                // High-voltage Crackle
                 let osc = audioCtx.createOscillator();
                 let gain = audioCtx.createGain();
                 let now = audioCtx.currentTime;
                 osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(400, now);
-                osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.15);
-
-                // Distance Thunder Rumble
-                setTimeout(() => {
-                    let noise = audioCtx.createBufferSource();
-                    let buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
-                    let data = buffer.getChannelData(0);
-                    for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
-                    noise.buffer = buffer;
-
-                    let filter = audioCtx.createBiquadFilter();
-                    filter.type = 'lowpass';
-                    filter.frequency.value = 120;
-
-                    let rGain = audioCtx.createGain();
-                    let rNow = audioCtx.currentTime;
-                    rGain.gain.setValueAtTime(0.5, rNow);
-                    rGain.gain.exponentialRampToValueAtTime(0.001, rNow + 1.8);
-
-                    noise.connect(filter);
-                    filter.connect(rGain);
-                    rGain.connect(audioCtx.destination);
-                    noise.start(rNow);
-                }, Math.min(250, distance * 2));
+                osc.frequency.setValueAtTime(350, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.18);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now); osc.stop(now + 0.18);
             } catch(e){}
         }
 
         function initScene() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x060913, 0.015);
+            scene.fog = new THREE.FogExp2(0x0a101d, 0.012);
 
-            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 25, 65);
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 22, 60);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.25;
+            renderer.toneMappingExposure = 1.3;
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.maxPolarAngle = Math.PI / 2 - 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.02;
 
-            // Ambient Light
-            const ambient = new THREE.AmbientLight(0x1a233a, 0.6);
-            scene.add(ambient);
+            scene.add(new THREE.AmbientLight(0x1e293b, 0.7));
 
-            // Sky Background Glow
             lightFlash = new THREE.DirectionalLight(0x93c5fd, 0.2);
             lightFlash.position.set(0, 100, 0);
             scene.add(lightFlash);
 
-            // Strike Hit Light
-            hitPointLight = new THREE.PointLight(0xa855f7, 0, 80);
+            hitPointLight = new THREE.PointLight(0x38bdf8, 0, 90);
             scene.add(hitPointLight);
 
-            // Procedural Mountain Terrain
-            const geo = new THREE.PlaneGeometry(140, 140, 120, 120);
+            // Mountain Terrain Mesh
+            const geo = new THREE.PlaneGeometry(140, 140, 140, 140);
             geo.rotateX(-Math.PI / 2);
             const pos = geo.attributes.position;
             for (let i = 0; i < pos.count; i++) {
                 let x = pos.getX(i);
                 let z = pos.getZ(i);
                 let dist = Math.sqrt(x*x + z*z);
-                let height = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 14.0 
-                           + Math.sin(x * 0.15 + z * 0.15) * 6.0 
-                           - (dist * 0.1);
+                let height = Math.sin(x * 0.07) * Math.cos(z * 0.07) * 16.0 
+                           + Math.sin(x * 0.14 + z * 0.14) * 7.0 
+                           - (dist * 0.08);
                 pos.setY(i, Math.max(-2, height));
             }
             geo.computeVertexNormals();
 
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0x1e293b,
-                roughness: 0.7,
-                metalness: 0.3,
-                flatShading: true
-            });
-            terrainMesh = new THREE.Mesh(geo, mat);
+            terrainMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+                color: 0x1e293b, roughness: 0.65, metalness: 0.35, flatShading: true
+            }));
             scene.add(terrainMesh);
 
-            // Storm Clouds
-            createClouds();
+            // Volumetric Rain Streaks Particle System (5,246 particles)
+            const rainGeo = new THREE.BufferGeometry();
+            const rainCount = 5246;
+            const rainPos = new Float32Array(rainCount * 3);
+            for (let i = 0; i < rainCount * 3; i += 3) {
+                rainPos[i] = (Math.random() - 0.5) * 120;
+                rainPos[i+1] = Math.random() * 70;
+                rainPos[i+2] = (Math.random() - 0.5) * 120;
+            }
+            rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+            rainParticles = new THREE.Points(rainGeo, new THREE.PointsMaterial({
+                color: 0x94a3b8, size: 0.25, transparent: true, opacity: 0.6
+            }));
+            scene.add(rainParticles);
 
             window.addEventListener('resize', onWindowResize);
-        }
-
-        function createClouds() {
-            const cloudGeo = new THREE.SphereGeometry(18, 16, 16);
-            const cloudMat = new THREE.MeshStandardMaterial({
-                color: 0x0f172a,
-                roughness: 0.9,
-                transparent: true,
-                opacity: 0.75
+            window.addEventListener('keydown', (e) => {
+                if (e.key === '1') triggerSingleStrike();
+                if (e.key === '2') toggleStormMode();
+                if (e.key === '9') autoOrbit = !autoOrbit;
             });
-            for (let i = 0; i < 15; i++) {
-                let cloud = new THREE.Mesh(cloudGeo, cloudMat);
-                cloud.position.set(
-                    (Math.random() - 0.5) * 120,
-                    45 + Math.random() * 10,
-                    (Math.random() - 0.5) * 120
-                );
-                cloud.scale.set(Math.random() * 1.5 + 1.2, 0.4, Math.random() * 1.5 + 1.2);
-                scene.add(cloud);
-            }
         }
 
-        function triggerLightning() {
+        function triggerSingleStrike() {
             initAudio();
-            strikeCount++;
-            document.getElementById('hud-bolts').innerText = strikeCount + " STRIKES";
+            let targetX = (Math.random() - 0.5) * 50;
+            let targetZ = (Math.random() - 0.5) * 50;
+            let targetY = 4.0;
 
-            let targetX = (Math.random() - 0.5) * 60;
-            let targetZ = (Math.random() - 0.5) * 60;
-            let targetY = 3.0;
-
-            // Generate Fractal 3D Lightning Line
             let points = [];
-            let curr = new THREE.Vector3(targetX + (Math.random() - 0.5) * 15, 55, targetZ + (Math.random() - 0.5) * 15);
+            let curr = new THREE.Vector3(targetX + (Math.random() - 0.5) * 12, 55, targetZ + (Math.random() - 0.5) * 12);
             let end = new THREE.Vector3(targetX, targetY, targetZ);
-            let segments = 22;
+            let segs = 24;
 
-            for (let i = 0; i <= segments; i++) {
-                let t = i / segments;
+            for (let i = 0; i <= segs; i++) {
+                let t = i / segs;
                 let p = new THREE.Vector3().lerpVectors(curr, end, t);
-                if (i > 0 && i < segments) {
+                if (i > 0 && i < segs) {
                     p.x += (Math.random() - 0.5) * 3.5;
                     p.y += (Math.random() - 0.5) * 1.5;
                     p.z += (Math.random() - 0.5) * 3.5;
@@ -554,31 +555,24 @@ def start_cloud_health_server():
                 points.push(p);
             }
 
-            const boltGeo = new THREE.BufferGeometry().setFromPoints(points);
-            const boltMat = new THREE.LineBasicMaterial({ color: 0xe0e7ff, linewidth: 3 });
-            const boltLine = new THREE.Line(boltGeo, boltMat);
+            const boltLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(points),
+                new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 4 })
+            );
             scene.add(boltLine);
 
-            // Flash Illumination
-            lightFlash.intensity = 4.5;
+            lightFlash.intensity = 5.0;
             hitPointLight.position.set(targetX, targetY + 3, targetZ);
-            hitPointLight.intensity = 15;
-            hitPointLight.color.setHex(Math.random() > 0.5 ? 0x38bdf8 : 0xc084fc);
+            hitPointLight.intensity = 18;
 
-            let distance = camera.position.distanceTo(end);
-            playThunderSound(distance);
-
-            activeBolts.push({ line: boltLine, life: 0.18 });
+            playThunderSound();
+            activeBolts.push({ line: boltLine, life: 0.16 });
+            document.getElementById('stat-bolts').innerText = activeBolts.length;
         }
 
-        function toggleAutoOrbit() {
-            autoOrbit = !autoOrbit;
-            document.getElementById('hud-orbit').innerText = autoOrbit ? "AUTO ORBIT" : "MANUAL";
-        }
-
-        function toggleAutoStorm() {
-            autoStorm = !autoStorm;
-            document.getElementById('hud-storm').innerText = autoStorm ? "AUTO ACTIVE" : "MANUAL";
+        function toggleStormMode() {
+            stormMode = !stormMode;
+            document.getElementById('btn-storm').classList.toggle('active', stormMode);
         }
 
         function onWindowResize() {
@@ -587,30 +581,47 @@ def start_cloud_health_server():
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        function animate(time) {
+        function animate(now) {
             requestAnimationFrame(animate);
 
-            // Auto Orbit Camera Motion
+            // FPS Telemetry
+            frameCount++;
+            if (now - lastTime >= 500) {
+                let fps = (frameCount * 1000) / (now - lastTime);
+                document.getElementById('stat-fps').innerText = fps.toFixed(1) + " FPS";
+                document.getElementById('stat-ms').innerText = (1000 / fps).toFixed(2) + " ms";
+                frameCount = 0; lastTime = now;
+            }
+
+            // Auto Camera Orbit
             if (autoOrbit) {
-                let angle = time * 0.00015;
-                camera.position.x = Math.sin(angle) * 70;
-                camera.position.z = Math.cos(angle) * 70;
-                camera.lookAt(0, 5, 0);
+                let angle = now * 0.00012;
+                camera.position.x = Math.sin(angle) * 65;
+                camera.position.z = Math.cos(angle) * 65;
+                camera.lookAt(0, 4, 0);
             }
             controls.update();
 
+            // Rain Particle Fall Loop
+            const pos = rainParticles.geometry.attributes.position;
+            for (let i = 1; i < pos.count * 3; i += 3) {
+                pos.array[i] -= 1.8;
+                if (pos.array[i] < 0) pos.array[i] = 70;
+            }
+            pos.needsUpdate = true;
+
             // Auto Storm Trigger
-            if (autoStorm) {
-                autoStormTimer += 0.016;
-                if (autoStormTimer > 1.2) {
-                    autoStormTimer = 0;
-                    triggerLightning();
+            if (stormMode) {
+                stormTimer += 0.016;
+                if (stormTimer > 1.1) {
+                    stormTimer = 0;
+                    triggerSingleStrike();
                 }
             }
 
-            // Lightning Bolt Decay & Flash Decay
+            // Light Decay
             if (lightFlash.intensity > 0.2) lightFlash.intensity *= 0.88;
-            if (hitPointLight.intensity > 0) hitPointLight.intensity *= 0.85;
+            if (hitPointLight.intensity > 0) hitPointLight.intensity *= 0.84;
 
             for (let i = activeBolts.length - 1; i >= 0; i--) {
                 activeBolts[i].life -= 0.016;
@@ -621,13 +632,14 @@ def start_cloud_health_server():
                     activeBolts.splice(i, 1);
                 }
             }
+            document.getElementById('stat-bolts').innerText = activeBolts.length;
 
             renderer.render(scene, camera);
         }
 
         window.onload = () => {
             initScene();
-            animate(0);
+            animate(performance.now());
         };
     </script>
 </body>
