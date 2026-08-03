@@ -1,6 +1,6 @@
 """
 Ground Impact Physics & Dynamic Terrain Deformation Module.
-Handles crater formation, heat dissipation map, scorch marks, shockwaves, and kinetic particle ejection.
+Vectorized 2D NumPy execution for sub-millisecond crater formation, thermal heat dissipation, scorch marks, and shockwaves.
 """
 
 import math
@@ -23,7 +23,7 @@ class ImpactPhysics:
 
     def process_impact(self, impact_world_pos, heightmap, radius=Config.CRATER_RADIUS_BASE, depth=Config.CRATER_DEPTH_BASE):
         """
-        Applies lightning strike impact physics:
+        Applies lightning strike impact physics using fast 2D vectorized NumPy operations:
         1. Deforms heightmap array creating parabolic crater + outer rim ridge.
         2. Injects extreme thermal energy into heat map (molten glowing ground).
         3. Leaves permanent carbon scorch mark ring.
@@ -36,36 +36,45 @@ class ImpactPhysics:
         row = int((world_z / self.world_size + 0.5) * (self.grid_size - 1))
 
         radius_grid = int(radius / self.dx)
-        r_min = max(0, row - radius_grid * 2)
-        r_max = min(self.grid_size, row + radius_grid * 2)
-        c_min = max(0, col - radius_grid * 2)
-        c_max = min(self.grid_size, col + radius_grid * 2)
+        r_min, r_max = max(0, row - radius_grid * 2), min(self.grid_size, row + radius_grid * 2)
+        c_min, c_max = max(0, col - radius_grid * 2), min(self.grid_size, col + radius_grid * 2)
 
-        for r in range(r_min, r_max):
-            z_pos = (r / (self.grid_size - 1) - 0.5) * self.world_size
-            for c in range(c_min, c_max):
-                x_pos = (c / (self.grid_size - 1) - 0.5) * self.world_size
+        if r_max <= r_min or c_max <= c_min:
+            return
 
-                dist = math.sqrt((x_pos - world_x)**2 + (z_pos - world_z)**2)
-                if dist < radius * 2.0:
-                    norm_dist = dist / radius
+        # Generate coordinate meshgrid for target slice
+        r_coords = (np.arange(r_min, r_max, dtype=np.float32) / (self.grid_size - 1) - 0.5) * self.world_size
+        c_coords = (np.arange(c_min, c_max, dtype=np.float32) / (self.grid_size - 1) - 0.5) * self.world_size
+        C_grid, R_grid = np.meshgrid(c_coords, r_coords)
 
-                    # Parabolic Crater Excavation Formula + Ejecta Rim Ridge
-                    if norm_dist < 1.0:
-                        # Crater bowl depression
-                        depression = (1.0 - norm_dist**2) * (depth / Config.TERRAIN_MAX_HEIGHT)
-                        heightmap[r, c] = max(0.0, heightmap[r, c] - depression)
-                    elif norm_dist < 1.5:
-                        # Ejecta rim ridge height boost
-                        rim_factor = math.sin((norm_dist - 1.0) * math.pi * 2.0) * 0.12 * (depth / Config.TERRAIN_MAX_HEIGHT)
-                        heightmap[r, c] = max(0.0, heightmap[r, c] + rim_factor)
+        # 2D Euclidean Distance array
+        dist = np.sqrt((C_grid - world_x)**2 + (R_grid - world_z)**2)
+        norm_dist = dist / radius
 
-                    # Inject Heat & Scorch Marks
-                    heat_val = math.exp(-norm_dist * 1.8) * Config.MAX_HEAT
-                    self.heat_map[r, c] = min(1.0, self.heat_map[r, c] + heat_val)
-                    
-                    scorch_val = math.exp(-norm_dist * 1.2) * 0.85
-                    self.scorch_map[r, c] = min(1.0, self.scorch_map[r, c] + scorch_val)
+        # Parabolic Bowl Excavation Mask
+        bowl_mask = norm_dist < 1.0
+        depression = np.where(bowl_mask, (1.0 - norm_dist**2) * (depth / Config.TERRAIN_MAX_HEIGHT), 0.0)
+        
+        # Ejecta Rim Ridge Factor
+        rim_mask = (norm_dist >= 1.0) & (norm_dist < 1.5)
+        rim_factor = np.where(rim_mask, np.sin((norm_dist - 1.0) * np.pi * 2.0) * 0.12 * (depth / Config.TERRAIN_MAX_HEIGHT), 0.0)
+
+        # Apply heightmap modifications in-place
+        sub_hm = heightmap[r_min:r_max, c_min:c_max]
+        sub_hm -= depression
+        sub_hm += rim_factor
+        np.clip(sub_hm, 0.0, 1.0, out=sub_hm)
+
+        # Inject Heat & Scorch Marks
+        influence_mask = norm_dist < 2.0
+        heat_val = np.where(influence_mask, np.exp(-norm_dist * 1.8) * Config.MAX_HEAT, 0.0)
+        scorch_val = np.where(influence_mask, np.exp(-norm_dist * 1.2) * 0.85, 0.0)
+
+        sub_heat = self.heat_map[r_min:r_max, c_min:c_max]
+        sub_scorch = self.scorch_map[r_min:r_max, c_min:c_max]
+
+        np.clip(sub_heat + heat_val, 0.0, 1.0, out=sub_heat)
+        np.clip(sub_scorch + scorch_val, 0.0, 1.0, out=sub_scorch)
 
         # Trigger Shockwave
         self.active_shockwaves.append({
