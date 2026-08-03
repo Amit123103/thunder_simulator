@@ -310,7 +310,7 @@ def start_cloud_health_server():
     <title>Cinematic Lightning Terrain Simulator (ModernGL)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background: #05070c; font-family: 'Consolas', 'Courier New', monospace; color: #38bdf8; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #04060a; font-family: 'Consolas', 'Courier New', monospace; color: #38bdf8; }
         
         #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
         canvas { width: 100%; height: 100%; display: block; }
@@ -326,12 +326,12 @@ def start_cloud_health_server():
         /* ImGui Window Panel */
         .imgui-panel {
             position: absolute; top: 35px; left: 15px; width: 340px;
-            background: rgba(12, 16, 24, 0.92); border: 1px solid #1e293b;
-            border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            background: rgba(10, 14, 22, 0.94); border: 1px solid #1e293b;
+            border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.85);
             z-index: 10; font-size: 11px; color: #94a3b8; backdrop-filter: blur(8px);
         }
         .imgui-titlebar {
-            background: rgba(20, 28, 44, 0.95); padding: 5px 8px; border-bottom: 1px solid #1e293b;
+            background: rgba(18, 26, 40, 0.96); padding: 5px 8px; border-bottom: 1px solid #1e293b;
             display: flex; justify-content: space-between; align-items: center; color: #cbd5e1; font-weight: bold;
         }
         .imgui-content { padding: 10px; }
@@ -433,7 +433,7 @@ def start_cloud_health_server():
 
     <script>
         let scene, camera, renderer, controls;
-        let terrainMesh, rainParticles, lightFlash, hitPointLight;
+        let terrainMesh, rainLines, lightFlash, hitPointLight;
         let activeBolts = [];
         let stormMode = true;
         let autoOrbit = true;
@@ -452,28 +452,47 @@ def start_cloud_health_server():
                 let gain = audioCtx.createGain();
                 let now = audioCtx.currentTime;
                 osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(350, now);
-                osc.frequency.exponentialRampToValueAtTime(30, now + 0.18);
-                gain.gain.setValueAtTime(0.25, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+                osc.frequency.setValueAtTime(380, now);
+                osc.frequency.exponentialRampToValueAtTime(25, now + 0.22);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
                 osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(now); osc.stop(now + 0.18);
+                osc.start(now); osc.stop(now + 0.22);
             } catch(e){}
+        }
+
+        // Ridged Multifractal Noise for Sharp Mountain Craggy Peaks
+        function noise2D(x, z) {
+            return (Math.sin(x) * Math.cos(z) + Math.sin(x * 1.7 + z * 0.9) * 0.5 + Math.cos(x * 0.4 - z * 2.1) * 0.25);
+        }
+
+        function getMountainHeight(x, z) {
+            let dist = Math.sqrt(x * x + z * z);
+            let h = 0;
+            let amp = 18.0;
+            let freq = 0.045;
+            for (let o = 0; o < 5; o++) {
+                let n = noise2D(x * freq, z * freq);
+                h += Math.abs(n) * amp; // Sharp ridge noise
+                amp *= 0.48;
+                freq *= 2.1;
+            }
+            return h - 5.0 - (dist * 0.07);
         }
 
         function initScene() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x0a101d, 0.012);
+            scene.fog = new THREE.FogExp2(0x060a14, 0.013);
 
-            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 22, 60);
+            camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 26, 68);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.3;
+            renderer.toneMappingExposure = 1.35;
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -481,49 +500,36 @@ def start_cloud_health_server():
             controls.dampingFactor = 0.05;
             controls.maxPolarAngle = Math.PI / 2 - 0.02;
 
-            scene.add(new THREE.AmbientLight(0x1e293b, 0.7));
+            scene.add(new THREE.AmbientLight(0x1a233a, 0.65));
 
-            lightFlash = new THREE.DirectionalLight(0x93c5fd, 0.2);
+            lightFlash = new THREE.DirectionalLight(0x93c5fd, 0.25);
             lightFlash.position.set(0, 100, 0);
             scene.add(lightFlash);
 
-            hitPointLight = new THREE.PointLight(0x38bdf8, 0, 90);
+            hitPointLight = new THREE.PointLight(0x38bdf8, 0, 110);
             scene.add(hitPointLight);
 
-            // Mountain Terrain Mesh
-            const geo = new THREE.PlaneGeometry(140, 140, 140, 140);
+            // Sharp Craggy Mountain Terrain Mesh
+            const geo = new THREE.PlaneGeometry(160, 160, 160, 160);
             geo.rotateX(-Math.PI / 2);
             const pos = geo.attributes.position;
             for (let i = 0; i < pos.count; i++) {
                 let x = pos.getX(i);
                 let z = pos.getZ(i);
-                let dist = Math.sqrt(x*x + z*z);
-                let height = Math.sin(x * 0.07) * Math.cos(z * 0.07) * 16.0 
-                           + Math.sin(x * 0.14 + z * 0.14) * 7.0 
-                           - (dist * 0.08);
-                pos.setY(i, Math.max(-2, height));
+                pos.setY(i, getMountainHeight(x, z));
             }
             geo.computeVertexNormals();
 
             terrainMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-                color: 0x1e293b, roughness: 0.65, metalness: 0.35, flatShading: true
+                color: 0x172033, roughness: 0.6, metalness: 0.4, flatShading: true
             }));
             scene.add(terrainMesh);
 
-            // Volumetric Rain Streaks Particle System (5,246 particles)
-            const rainGeo = new THREE.BufferGeometry();
-            const rainCount = 5246;
-            const rainPos = new Float32Array(rainCount * 3);
-            for (let i = 0; i < rainCount * 3; i += 3) {
-                rainPos[i] = (Math.random() - 0.5) * 120;
-                rainPos[i+1] = Math.random() * 70;
-                rainPos[i+2] = (Math.random() - 0.5) * 120;
-            }
-            rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-            rainParticles = new THREE.Points(rainGeo, new THREE.PointsMaterial({
-                color: 0x94a3b8, size: 0.25, transparent: true, opacity: 0.6
-            }));
-            scene.add(rainParticles);
+            // Volumetric Storm Cloud Layer
+            createCloudLayer();
+
+            // Vertical Rain Streaks System (5,246 Line Segments)
+            createRainStreaks();
 
             window.addEventListener('resize', onWindowResize);
             window.addEventListener('keydown', (e) => {
@@ -533,40 +539,95 @@ def start_cloud_health_server():
             });
         }
 
+        function createCloudLayer() {
+            const cloudGeo = new THREE.SphereGeometry(22, 16, 16);
+            const cloudMat = new THREE.MeshStandardMaterial({
+                color: 0x0b1120, roughness: 0.9, transparent: true, opacity: 0.8
+            });
+            for (let i = 0; i < 18; i++) {
+                let cloud = new THREE.Mesh(cloudGeo, cloudMat);
+                cloud.position.set(
+                    (Math.random() - 0.5) * 140,
+                    48 + Math.random() * 8,
+                    (Math.random() - 0.5) * 140
+                );
+                cloud.scale.set(Math.random() * 1.6 + 1.2, 0.35, Math.random() * 1.6 + 1.2);
+                scene.add(cloud);
+            }
+        }
+
+        function createRainStreaks() {
+            const rainCount = 5246;
+            const linePos = new Float32Array(rainCount * 6);
+            for (let i = 0; i < rainCount * 6; i += 6) {
+                let rx = (Math.random() - 0.5) * 130;
+                let ry = Math.random() * 70;
+                let rz = (Math.random() - 0.5) * 130;
+                linePos[i] = rx; linePos[i+1] = ry; linePos[i+2] = rz;
+                linePos[i+3] = rx; linePos[i+4] = ry - 1.8; linePos[i+5] = rz;
+            }
+            const rainGeo = new THREE.BufferGeometry();
+            rainGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+            rainLines = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({
+                color: 0x64748b, transparent: true, opacity: 0.55
+            }));
+            scene.add(rainLines);
+        }
+
         function triggerSingleStrike() {
             initAudio();
-            let targetX = (Math.random() - 0.5) * 50;
-            let targetZ = (Math.random() - 0.5) * 50;
-            let targetY = 4.0;
+            let targetX = (Math.random() - 0.5) * 55;
+            let targetZ = (Math.random() - 0.5) * 55;
+            let targetY = getMountainHeight(targetX, targetZ) + 1.0;
 
-            let points = [];
-            let curr = new THREE.Vector3(targetX + (Math.random() - 0.5) * 12, 55, targetZ + (Math.random() - 0.5) * 12);
+            // Generate Main Trunk + Branching Lines
+            let mainPoints = [];
+            let curr = new THREE.Vector3(targetX + (Math.random() - 0.5) * 14, 52, targetZ + (Math.random() - 0.5) * 14);
             let end = new THREE.Vector3(targetX, targetY, targetZ);
-            let segs = 24;
+            let segs = 26;
 
             for (let i = 0; i <= segs; i++) {
                 let t = i / segs;
                 let p = new THREE.Vector3().lerpVectors(curr, end, t);
                 if (i > 0 && i < segs) {
-                    p.x += (Math.random() - 0.5) * 3.5;
+                    p.x += (Math.random() - 0.5) * 3.8;
                     p.y += (Math.random() - 0.5) * 1.5;
-                    p.z += (Math.random() - 0.5) * 3.5;
+                    p.z += (Math.random() - 0.5) * 3.8;
                 }
-                points.push(p);
+                mainPoints.push(p);
+
+                // Side Branching Bolts
+                if (i === 10 || i === 16) {
+                    let bPoints = [p.clone()];
+                    let bEnd = p.clone().add(new THREE.Vector3((Math.random()-0.5)*12, -10, (Math.random()-0.5)*12));
+                    for (let j = 1; j <= 8; j++) {
+                        let bt = j / 8;
+                        let bp = new THREE.Vector3().lerpVectors(p, bEnd, bt);
+                        bp.x += (Math.random() - 0.5) * 2.0;
+                        bp.z += (Math.random() - 0.5) * 2.0;
+                        bPoints.push(bp);
+                    }
+                    const bLine = new THREE.Line(
+                        new THREE.BufferGeometry().setFromPoints(bPoints),
+                        new THREE.LineBasicMaterial({ color: 0x93c5fd, linewidth: 2 })
+                    );
+                    scene.add(bLine);
+                    activeBolts.push({ line: bLine, life: 0.14 });
+                }
             }
 
-            const boltLine = new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints(points),
+            const mainLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(mainPoints),
                 new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 4 })
             );
-            scene.add(boltLine);
+            scene.add(mainLine);
 
-            lightFlash.intensity = 5.0;
+            lightFlash.intensity = 5.5;
             hitPointLight.position.set(targetX, targetY + 3, targetZ);
-            hitPointLight.intensity = 18;
+            hitPointLight.intensity = 22;
 
             playThunderSound();
-            activeBolts.push({ line: boltLine, life: 0.16 });
+            activeBolts.push({ line: mainLine, life: 0.18 });
             document.getElementById('stat-bolts').innerText = activeBolts.length;
         }
 
@@ -596,17 +657,21 @@ def start_cloud_health_server():
             // Auto Camera Orbit
             if (autoOrbit) {
                 let angle = now * 0.00012;
-                camera.position.x = Math.sin(angle) * 65;
-                camera.position.z = Math.cos(angle) * 65;
-                camera.lookAt(0, 4, 0);
+                camera.position.x = Math.sin(angle) * 68;
+                camera.position.z = Math.cos(angle) * 68;
+                camera.lookAt(0, 5, 0);
             }
             controls.update();
 
             // Rain Particle Fall Loop
-            const pos = rainParticles.geometry.attributes.position;
-            for (let i = 1; i < pos.count * 3; i += 3) {
-                pos.array[i] -= 1.8;
-                if (pos.array[i] < 0) pos.array[i] = 70;
+            const pos = rainLines.geometry.attributes.position;
+            for (let i = 1; i < pos.count * 3; i += 6) {
+                pos.array[i] -= 2.2;
+                pos.array[i+3] -= 2.2;
+                if (pos.array[i] < 0) {
+                    pos.array[i] = 70;
+                    pos.array[i+3] = 68.2;
+                }
             }
             pos.needsUpdate = true;
 
@@ -620,7 +685,7 @@ def start_cloud_health_server():
             }
 
             // Light Decay
-            if (lightFlash.intensity > 0.2) lightFlash.intensity *= 0.88;
+            if (lightFlash.intensity > 0.25) lightFlash.intensity *= 0.88;
             if (hitPointLight.intensity > 0) hitPointLight.intensity *= 0.84;
 
             for (let i = activeBolts.length - 1; i >= 0; i--) {
