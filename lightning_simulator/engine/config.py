@@ -1,5 +1,6 @@
 """
 Engine Configuration and Global Parameters for Lightning Terrain Simulator.
+Optimized for 120+ FPS high-performance GPU execution and cinematic photorealism.
 """
 
 import math
@@ -11,7 +12,7 @@ class Config:
     DEFAULT_HEIGHT = 900
     VSYNC = False
     TARGET_FPS = 120
-    MSAA_SAMPLES = 4
+    MSAA_SAMPLES = 0  # MSAA off for HDR high-speed GPU pipeline (120+ FPS)
 
     # Terrain Settings
     TERRAIN_GRID_SIZE = 256  # 256x256 vertex grid
@@ -35,44 +36,44 @@ class Config:
     LIGHTNING_MAX_BRANCHES = 128
     LIGHTNING_SUBDIVISIONS = 6
     LIGHTNING_ROUGHNESS = 0.38
-    LIGHTNING_BRANCH_PROBABILITY = 0.35
+    LIGHTNING_BRANCH_PROBABILITY = 0.38
     LIGHTNING_BRANCH_DECAY = 0.65
-    LIGHTNING_BOLT_WIDTH = 0.45
-    LIGHTNING_GLOW_INTENSITY = 9.5
-    LIGHTNING_STRIKE_DURATION = 0.38  # seconds
-    LIGHTNING_STORM_INTERVAL = 1.6   # seconds between automatic strikes in storm mode
+    LIGHTNING_BOLT_WIDTH = 0.55
+    LIGHTNING_GLOW_INTENSITY = 12.0
+    LIGHTNING_STRIKE_DURATION = 0.42  # seconds
+    LIGHTNING_STORM_INTERVAL = 1.5   # seconds between automatic strikes in storm mode
 
     # Volumetric Clouds
     CLOUD_MIN_HEIGHT = 45.0
     CLOUD_MAX_HEIGHT = 70.0
-    CLOUD_DENSITY = 0.85
-    CLOUD_COVERAGE = 0.65
-    CLOUD_STEPS = 64
+    CLOUD_DENSITY = 0.88
+    CLOUD_COVERAGE = 0.68
+    CLOUD_STEPS = 36
     CLOUD_LIGHT_STEPS = 6
     WIND_VECTOR = (3.5, 0.0, 2.0)
 
     # Atmosphere & Sky
     SUN_AZIMUTH = 45.0
-    SUN_ELEVATION = 12.0  # Twilight storm look
+    SUN_ELEVATION = 6.0  # Epic twilight storm look
     RAYLEIGH_COEFF = (0.0058, 0.0135, 0.0331)
     MIE_COEFF = 0.004
     MIE_G = 0.76
-    FOG_DENSITY = 0.015
+    FOG_DENSITY = 0.014
     FOG_HEIGHT_FALLOFF = 0.08
     FOG_COLOR = (0.08, 0.12, 0.18)
 
     # GPU Particles
-    MAX_PARTICLES = 30000
-    SPARK_COUNT_PER_IMPACT = 800
-    SMOKE_COUNT_PER_IMPACT = 300
-    DEBRIS_COUNT_PER_IMPACT = 250
-    RAIN_PARTICLE_COUNT = 8000
+    MAX_PARTICLES = 16000
+    SPARK_COUNT_PER_IMPACT = 600
+    SMOKE_COUNT_PER_IMPACT = 250
+    DEBRIS_COUNT_PER_IMPACT = 200
+    RAIN_PARTICLE_COUNT = 5000
 
     # Post-Processing & HDR
-    EXPOSURE = 1.35
-    BLOOM_THRESHOLD = 1.1
-    BLOOM_INTENSITY = 2.2
-    BLOOM_RADIUS = 0.85
+    EXPOSURE = 1.45
+    BLOOM_THRESHOLD = 1.05
+    BLOOM_INTENSITY = 2.5
+    BLOOM_RADIUS = 0.90
     CHROMATIC_ABERRATION = 0.0035
     VIGNETTE_STRENGTH = 0.45
     FILM_GRAIN = 0.03
