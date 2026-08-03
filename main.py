@@ -298,4 +298,9 @@ class LightningSimulatorApp(mglw.WindowConfig):
             self.camera.process_mouse_zoom(y_offset)
 
 if __name__ == '__main__':
-    mglw.run_window_config(LightningSimulatorApp)
+    # Auto-detect headless cloud environment (Render.com / Linux without X11 DISPLAY)
+    if sys.platform != 'win32' and os.environ.get('DISPLAY') is None:
+        print("[Main] Headless cloud environment detected. Running ModernGL headless window mode...")
+        mglw.run_window_config(LightningSimulatorApp, args=['--window', 'headless'])
+    else:
+        mglw.run_window_config(LightningSimulatorApp)
