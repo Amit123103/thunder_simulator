@@ -297,9 +297,31 @@ class LightningSimulatorApp(mglw.WindowConfig):
         if not io.want_capture_mouse:
             self.camera.process_mouse_zoom(y_offset)
 
+def start_cloud_health_server():
+    """Binds to Render's $PORT for Web Service health checks."""
+    import threading
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    class HealthHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.end_headers()
+            self.wfile.write("⚡ Cinematic Lightning Terrain Simulator Active".encode('utf-8'))
+
+        def log_message(self, format, *args):
+            pass
+
+    port = int(os.environ.get('PORT', 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthHandler)
+    print(f"[Main] Cloud Health Check server bound to 0.0.0.0:{port}")
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+
 if __name__ == '__main__':
     # Auto-detect headless cloud environment (Render.com / Linux without X11 DISPLAY)
     if sys.platform != 'win32' and os.environ.get('DISPLAY') is None:
+        start_cloud_health_server()
         print("[Main] Headless cloud environment detected. Initializing ModernGL simulation...")
         try:
             mglw.run_window_config(LightningSimulatorApp, args=['--window', 'headless'])
