@@ -26,6 +26,7 @@ from lightning_simulator.engine import (
     Atmosphere,
     Fog,
     ParticleSystem,
+    Waterfall,
     AudioEngine,
     UIManager,
     MasterRenderer
@@ -58,6 +59,7 @@ class LightningSimulatorApp(mglw.WindowConfig):
         self.atmosphere = Atmosphere()
         self.fog = Fog()
         self.particles = ParticleSystem()
+        self.waterfall = Waterfall(self.ctx)
         self.audio = AudioEngine()
         self.ui = UIManager(self.imgui_renderer)
 
@@ -130,6 +132,7 @@ class LightningSimulatorApp(mglw.WindowConfig):
         self.lightning_sys.update(delta_time, self.terrain.get_height_at, self.on_lightning_ground_hit)
         self.cloud_sys.update(delta_time, self.lightning_sys)
         self.particles.update(delta_time)
+        self.waterfall.update(delta_time, self.particles)
 
         # Update telemetry state for ImGui HUD
         self.app_state['particle_count'] = np.sum(self.particles.particles[:, 7] > 0.0)
@@ -198,7 +201,8 @@ class LightningSimulatorApp(mglw.WindowConfig):
             self.cloud_sys,
             self.atmosphere,
             self.fog,
-            self.particles
+            self.particles,
+            self.waterfall
         )
 
         # 4. Render ImGui UI Overlay Pass

@@ -92,6 +92,12 @@ class MasterRenderer:
             fragment_shader=read_file(self.shader_path('bloom.frag'))
         )
 
+        # 8. Animated Waterfall & River Surface Shader
+        self.prog_water = self.ctx.program(
+            vertex_shader=read_file(self.shader_path('water.vert')),
+            fragment_shader=read_file(self.shader_path('water.frag'))
+        )
+
     def setup_quad_geometry(self):
         """Creates Screen Quad VAO for full-screen pass shaders and pre-allocated dynamic VBOs."""
         quad_data = create_screen_quad_data()
@@ -133,7 +139,7 @@ class MasterRenderer:
         self.setup_framebuffers()
         self.bloom_pipeline.resize(width, height)
 
-    def render_frame(self, camera, terrain, lightning_sys, cloud_sys, atmosphere, fog, particles):
+    def render_frame(self, camera, terrain, lightning_sys, cloud_sys, atmosphere, fog, particles, waterfall=None):
         """Executes full cinematic render pipeline passes."""
         pv = camera.pv_matrix
         inv_pv = glm.inverse(pv)
@@ -195,6 +201,10 @@ class MasterRenderer:
             index_buffer=terrain.ibo
         )
         vao_terrain.render(moderngl.TRIANGLES)
+
+        # 3b. Cascading Mountain Waterfall & River Pool Pass
+        if waterfall is not None:
+            waterfall.render(self.prog_water, camera, atmosphere, fog, lightning_sys)
 
         # 4. 3D Lightning Bolts Billboard Mesh Pass
         self.ctx.enable(moderngl.DEPTH_TEST)
