@@ -1,0 +1,8 @@
+moderngl>=5.8.2
+moderngl-window>=2.4.4
+numpy>=1.26.0
+PyGLM>=2.7.0
+imgui>=2.0.0
+Pillow>=10.0.0
+scipy>=1.11.0
+imageio>=2.31.0

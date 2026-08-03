@@ -1,0 +1,18 @@
+# Python & Virtual Environment
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Output exports (generated at runtime)
+*.png
+*.obj
+*.wav
