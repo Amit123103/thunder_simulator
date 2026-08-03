@@ -22,6 +22,12 @@ uniform int u_NumLightningLights;
 uniform vec3 u_LightningLightPos[8];
 uniform float u_LightningLightIntensity[8];
 
+// Expanding Kinetic Shockwave Rings
+uniform int u_NumShockwaves;
+uniform vec3 u_ShockwavePos[4];
+uniform float u_ShockwaveRadius[4];
+uniform float u_ShockwaveStrength[4];
+
 out vec4 FragColor;
 
 const vec3 ROCK_BASE_COLOR = vec3(0.20, 0.18, 0.17);
@@ -86,6 +92,20 @@ void main()
     {
         vec3 emissiveGlow = MOLTEN_LAVA_COLOR * pow(heat, 1.4) * 9.0;
         finalColor += emissiveGlow;
+    }
+
+    // Expanding Impact Kinetic Shockwave Rings
+    for (int i = 0; i < u_NumShockwaves; ++i)
+    {
+        float waveDist = length(v_WorldPos.xz - u_ShockwavePos[i].xz);
+        float ringWidth = 2.0;
+        float deltaDist = abs(waveDist - u_ShockwaveRadius[i]);
+        if (deltaDist < ringWidth)
+        {
+            float ringFactor = exp(-deltaDist * deltaDist * 1.2) * u_ShockwaveStrength[i];
+            vec3 ringGlow = vec3(1.3, 0.65, 0.15) * ringFactor * 5.0;
+            finalColor += ringGlow;
+        }
     }
 
     // Exponential Height Fog

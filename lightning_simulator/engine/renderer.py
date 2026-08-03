@@ -188,6 +188,23 @@ class MasterRenderer:
             if i_key in self.prog_terrain:
                 self.prog_terrain[i_key].value = intensity
 
+        # Bind active shockwave uniforms to terrain shader
+        active_waves = terrain.physics.active_shockwaves
+        num_waves = min(4, len(active_waves))
+        if 'u_NumShockwaves' in self.prog_terrain:
+            self.prog_terrain['u_NumShockwaves'].value = num_waves
+        for idx in range(num_waves):
+            wave = active_waves[idx]
+            pos_key = f'u_ShockwavePos[{idx}]'
+            rad_key = f'u_ShockwaveRadius[{idx}]'
+            str_key = f'u_ShockwaveStrength[{idx}]'
+            if pos_key in self.prog_terrain:
+                self.prog_terrain[pos_key].value = tuple(wave['pos'])
+            if rad_key in self.prog_terrain:
+                self.prog_terrain[rad_key].value = wave['radius']
+            if str_key in self.prog_terrain:
+                self.prog_terrain[str_key].value = wave['strength']
+
         # Render terrain mesh grid
         vao_terrain = self.ctx.vertex_array(
             self.prog_terrain,
